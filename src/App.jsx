@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import './App.css'; // Asegúrate de que la ruta sea correcta
 
+import Silla from "./components/silla";
+
 function App() {
   const [usuariosConectados, setUsuariosConectados] = useState(0);
+  const [sillas, setSillas] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -27,10 +30,39 @@ function App() {
     return () => clearInterval(intervalId);
   }, []);
 
-  // Uso de useEffect para monitorear cambios en usuariosConectados
   useEffect(() => {
     console.log('Updated usuariosConectados:', usuariosConectados);
   }, [usuariosConectados]);
+
+  // Configurar WebSocket
+  useEffect(() => {
+    const socket = new WebSocket('ws://localhost:3000');
+
+    socket.onopen = () => {
+      console.log('WebSocket Client Connected');
+    };
+
+    socket.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      if (data.type === 'init') {
+        setSillas(data.sillas);
+      } else if (data.type === 'update') {
+        setSillas(data.sillas);
+      }
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket Client Disconnected');
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, []);
 
   return (
     <div className="h-screen p-4">
@@ -45,8 +77,8 @@ function App() {
       <div className="curved-screen"></div>
       <div className="mt-8 flex justify-center">
         <div className="grid grid-cols-4 gap-y-10 gap-x-20">
-          {Array.from({ length: 12 }).map((_, index) => (
-            <div key={index} className="w-16 h-16 rounded-lg bg-gray-300"></div>
+          {sillas.map((silla) => (
+            <Silla key={silla.id} comprado={silla.comprado} />
           ))}
         </div> 
       </div>
