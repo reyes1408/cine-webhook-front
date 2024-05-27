@@ -1,0 +1,9 @@
+/* Agrega esto a tu archivo CSS */
+.curved-screen {
+    width: 80%;
+    height: 50px;
+    background-color: #ddd;
+    border-radius: 50% 50% 0 0;
+    margin: 50px auto;
+  }
+  
