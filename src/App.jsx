@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
-import './App.css'; // Asegúrate de que la ruta sea correcta
+import React, { useState, useEffect } from "react";
+import './App.css';
 
 import Silla from "./components/silla";
 
 function App() {
+  const [socket, setSocket] = useState(null);
   const [usuariosConectados, setUsuariosConectados] = useState(0);
   const [sillas, setSillas] = useState([]);
   const [sillasVendidas, setSillasVendidas] = useState(0);
@@ -25,9 +26,8 @@ function App() {
 
     fetchData();
 
-    const intervalId = setInterval(fetchData, 3000); // Realizar polling cada 3 segundos
+    const intervalId = setInterval(fetchData, 3000);
 
-    // Limpieza al desmontar el componente
     return () => clearInterval(intervalId);
   }, []);
 
@@ -35,15 +35,14 @@ function App() {
     console.log('Updated usuariosConectados:', usuariosConectados);
   }, [usuariosConectados]);
 
-  // Configurar WebSocket
   useEffect(() => {
-    const socket = new WebSocket('ws://localhost:3000');
+    const newSocket = new WebSocket('ws://localhost:3000');
 
-    socket.onopen = () => {
+    newSocket.onopen = () => {
       console.log('WebSocket Client Connected');
     };
 
-    socket.onmessage = (message) => {
+    newSocket.onmessage = (message) => {
       const data = JSON.parse(message.data);
       if (data.type === 'init') {
         setSillas(data.sillas);
@@ -52,42 +51,46 @@ function App() {
       }
     };
 
-    socket.onclose = () => {
+    newSocket.onclose = () => {
       console.log('WebSocket Client Disconnected');
     };
 
-    socket.onerror = (error) => {
+    newSocket.onerror = (error) => {
       console.error('WebSocket error:', error);
     };
 
+    setSocket(newSocket);
+
     return () => {
-      socket.close();
+      newSocket.close();
     };
   }, []);
 
-   // Función para obtener el número de sillas vendidas
-   const obtenerNuevaNotification = async () => {
+  const obtenerNuevaNotification = async () => {
     try {
-      const resp = await fetch("http://localhost:3000/api/sillasVendidas"); // esperando
+      const resp = await fetch("http://localhost:3000/api/sillasVendidas");
       if (!resp.ok) {
         throw new Error('Network response was not ok');
       }
       const json = await resp.json();
       setSillasVendidas(json.sillasVendidas);
 
-      // Llamar a obtenerNuevaNotification() nuevamente para el siguiente mensaje
       obtenerNuevaNotification();
     } catch (error) {
       console.error("Error fetching sillas vendidas:", error);
-      // Reintentar en un segundo en caso de fallo
       setTimeout(obtenerNuevaNotification, 1000);
     }
   };
 
-  // Iniciar la función de obtener nuevas notificaciones al montar el componente
   useEffect(() => {
     obtenerNuevaNotification();
   }, []);
+
+  const handleCompra = (infoCompra) => {
+    const { type, id } = infoCompra;
+    const data = JSON.stringify({ type, id });
+    socket.send(data);
+  };
 
   return (
     <div className="h-screen p-4">
@@ -103,7 +106,12 @@ function App() {
       <div className="mt-8 flex justify-center">
         <div className="grid grid-cols-4 gap-y-10 gap-x-20">
           {sillas.map((silla) => (
-            <Silla key={silla.id} comprado={silla.comprado} />
+            <Silla
+              key={silla.id}
+              id={silla.id}
+              comprado={silla.comprado}
+              onCompra={handleCompra}
+            />
           ))}
         </div> 
       </div>
