@@ -9,33 +9,42 @@ function App() {
   const [sillasVendidas, setSillasVendidas] = useState(0);
 
   useEffect(() => {
-    const newSocket = new WebSocket("ws://localhost:3000");
+    let newSocket;
 
-    newSocket.onopen = () => {
-      console.log("WebSocket Client Connected");
+    const connectWebSocket = () => {
+      newSocket = new WebSocket("ws://localhost:3000");
+
+      newSocket.onopen = () => {
+        console.log("WebSocket Client Connected");
+        setSocket(newSocket);
+        alert("WebSocket Client Connected"); // Alert for connection
+      };
+
+      newSocket.onmessage = (message) => {
+        const data = JSON.parse(message.data);
+        if (data.type === "init" || data.type === "update") {
+          setSillas(data.sillas);
+        }
+      };
+
+      newSocket.onclose = () => {
+        console.log("WebSocket Client Disconnected");
+        alert("WebSocket Client Disconnected"); // Alert for disconnection
+        setTimeout(connectWebSocket, 3000); // Reconnect after 3 seconds
+      };
+
+      newSocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        newSocket.close(); // Close and trigger onclose to attempt reconnection
+      };
     };
 
-    newSocket.onmessage = (message) => {
-      const data = JSON.parse(message.data);
-      if (data.type === "init") {
-        setSillas(data.sillas);
-      } else if (data.type === "update") {
-        setSillas(data.sillas);
-      }
-    };
-
-    newSocket.onclose = () => {
-      console.log("WebSocket Client Disconnected");
-    };
-
-    newSocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-    };
-
-    setSocket(newSocket);
+    connectWebSocket();
 
     return () => {
-      newSocket.close();
+      if (newSocket) {
+        newSocket.close();
+      }
     };
   }, []);
 
@@ -74,7 +83,11 @@ function App() {
   const handleCompra = (infoCompra) => {
     const { type, id } = infoCompra;
     const data = JSON.stringify({ type, id });
-    socket.send(data);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(data);
+    } else {
+      console.error("WebSocket is not connected");
+    }
   };
 
   return (
