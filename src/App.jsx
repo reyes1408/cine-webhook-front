@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
-import './App.css';
-
+import { useState, useEffect } from "react";
+import "./App.css";
 import Silla from "./components/silla";
 
 function App() {
@@ -10,53 +9,27 @@ function App() {
   const [sillasVendidas, setSillasVendidas] = useState(0);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch("http://localhost:3000/api/userOnline");
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        const data = await response.json();
-        console.log(data.usuariosConectados);
-        setUsuariosConectados(data.usuariosConectados);
-      } catch (error) {
-        console.error("Error fetching user online data:", error);
-      }
-    };
-
-    fetchData();
-
-    const intervalId = setInterval(fetchData, 3000);
-
-    return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    console.log('Updated usuariosConectados:', usuariosConectados);
-  }, [usuariosConectados]);
-
-  useEffect(() => {
-    const newSocket = new WebSocket('ws://localhost:3000');
+    const newSocket = new WebSocket("ws://localhost:3000");
 
     newSocket.onopen = () => {
-      console.log('WebSocket Client Connected');
+      console.log("WebSocket Client Connected");
     };
 
     newSocket.onmessage = (message) => {
       const data = JSON.parse(message.data);
-      if (data.type === 'init') {
+      if (data.type === "init") {
         setSillas(data.sillas);
-      } else if (data.type === 'update') {
+      } else if (data.type === "update") {
         setSillas(data.sillas);
       }
     };
 
     newSocket.onclose = () => {
-      console.log('WebSocket Client Disconnected');
+      console.log("WebSocket Client Disconnected");
     };
 
     newSocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      console.error("WebSocket error:", error);
     };
 
     setSocket(newSocket);
@@ -66,24 +39,36 @@ function App() {
     };
   }, []);
 
-  const obtenerNuevaNotification = async () => {
-    try {
-      const resp = await fetch("http://localhost:3000/api/sillasVendidas");
-      if (!resp.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const json = await resp.json();
-      setSillasVendidas(json.sillasVendidas);
-
-      obtenerNuevaNotification();
-    } catch (error) {
-      console.error("Error fetching sillas vendidas:", error);
-      setTimeout(obtenerNuevaNotification, 1000);
-    }
-  };
-
   useEffect(() => {
-    obtenerNuevaNotification();
+    const connectSSE = (url, setData) => {
+      const eventSource = new EventSource(url);
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        setData(data);
+      };
+
+      eventSource.onerror = (error) => {
+        console.error("SSE error:", error);
+        eventSource.close();
+        setTimeout(() => connectSSE(url, setData), 3000); // Reconnect after 3 seconds
+      };
+
+      return eventSource;
+    };
+
+    const sseSillas = connectSSE("http://localhost:3000/api/sillasSSE", (data) => {
+      setSillasVendidas(data.sillasVendidas);
+    });
+
+    const sseUserOnline = connectSSE("http://localhost:3000/api/clientOnline", (data) => {
+      setUsuariosConectados(data.usuariosConectados);
+    });
+
+    return () => {
+      sseSillas.close();
+      sseUserOnline.close();
+    };
   }, []);
 
   const handleCompra = (infoCompra) => {
@@ -113,7 +98,7 @@ function App() {
               onCompra={handleCompra}
             />
           ))}
-        </div> 
+        </div>
       </div>
     </div>
   );
